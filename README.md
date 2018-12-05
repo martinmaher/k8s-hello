@@ -36,20 +36,25 @@ docker push martinmaher/hello:v1
 
 Create a new namespace in kubernetes and switch to this namespace:
 ```
-kubectl create -f hello-namespace.yml
+kubectl create -f kubectl/hello-namespace.yml
 kubectl config set-context $(kubectl config current-context) --namespace=hello
 ```
 
 Deploy in cluster:
 ```
-kubectl create -f hello-deployment.yml
+kubectl create -f kubectl/hello-deployment.yml
 kubectl get all --namespace=hello
 ```
 
 Create a service:
 ```
-kubectl create -f hello-service.yml
+kubectl create -f kubectl/hello-service.yml
 kubectl get service/hello -o jsonpath="{.spec.ports[*].nodePort}"
+```
+
+Testing the service (endpoint on AWS):
+```
+kubectl get service/hello -o jsonpath="http://{.status.loadBalancer.ingress[0].hostname}:{.spec.ports[*].port}"
 ```
 
 ## Rolling out a new version on cluster
@@ -60,7 +65,7 @@ TODO
 
 Remove everything:
 ```
-kubectl delete deployment hello
 kubectl delete service hello
+kubectl delete deployment hello
 kubectl delete namespace hello
 ```
