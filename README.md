@@ -11,12 +11,12 @@ java -jar target/hello-0.0.1.jar
 
 Create docker image:
 ```
-docker build -t martinmaher/hello:v1 .
+docker build -t hello:v1 .
 ```
 
 Test docker image:
 ```
-docker run -p 8080:8080 martinmaher/hello:v1
+docker run -p 8080:8080 hello:v1
 ```
 
 ## Uploading image to docker hub (optional)
@@ -28,7 +28,7 @@ docker login
 
 Tag image and push to docker hub:
 ```
-docker tag martinmaher/hello:v1 martinmaher/hello:v1
+docker tag hello:v1 martinmaher/hello:v1
 docker push martinmaher/hello:v1
 ```
 
