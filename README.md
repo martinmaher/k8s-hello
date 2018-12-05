@@ -52,7 +52,7 @@ kubectl create -f hello-service.yml
 kubectl get service/hello -o jsonpath="{.spec.ports[*].nodePort}"
 ```
 
-## Deploying a new version on cluster
+## Rolling out a new version on cluster
 
 TODO 
 
