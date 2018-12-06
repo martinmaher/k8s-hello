@@ -34,7 +34,7 @@ spec:
         image: CONTAINER_IMAGE
         securityContext:
           privileged: false
-          readOnlyRootFilesystem: true
+          readOnlyRootFilesystem: false
           allowPrivilegeEscalation: false
         ports:
         - containerPort: 8080

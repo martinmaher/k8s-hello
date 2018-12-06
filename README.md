@@ -36,19 +36,19 @@ docker push martinmaher/hello:v1
 
 Create a new namespace in kubernetes and switch to this namespace:
 ```
-kubectl create -f kubectl/hello-namespace.yml
+kubectl create -f kubernetes/hello-namespace.yml
 kubectl config set-context $(kubectl config current-context) --namespace=hello
 ```
 
 Deploy in cluster:
 ```
-kubectl create -f kubectl/hello-deployment.yml
+kubectl create -f kubernetes/hello-deployment.yml
 kubectl get all --namespace=hello
 ```
 
 Create a service:
 ```
-kubectl create -f kubectl/hello-service.yml
+kubectl create -f kubernetes/hello-service.yml
 kubectl get service/hello -o jsonpath="{.spec.ports[*].nodePort}"
 ```
 
