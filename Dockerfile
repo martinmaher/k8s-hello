@@ -1,4 +1,4 @@
-FROM openjdk:8
+FROM openjdk:8-jre-alpine
 ENV JAVA_APP_JAR hello-0.0.1.jar
 WORKDIR /app/
 COPY target/$JAVA_APP_JAR .
