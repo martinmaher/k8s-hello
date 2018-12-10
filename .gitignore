@@ -3,3 +3,5 @@ target
 *.ctxt
 .idea
 *.iml
+terraform.tfvars
+.terraform/
