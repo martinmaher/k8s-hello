@@ -4,5 +4,6 @@ target
 .idea
 *.iml
 terraform.tfvars
+terraform.tfstate
 .terraform/
 config_map_aws_auth.yaml
