@@ -1,0 +1,239 @@
+= Setting up the EKS cluster
+
+:toc:
+
+# Overview
+
+TODO add overview of cluster incl. VPC, subnets, etc.
+
+# Prerequisites
+
+## Create user
+For provisioning the EKS cluster and other dependent infrastructure you need to create an AWS User with certain permissions.
+
+First of all a new _group_ should be created for the user:
+
+* Open the IAM dashboard: https://console.aws.amazon.com/iam/home?region=eu-west-1#/home
+* Select Groups -> Create new group
+* Enter group name:  "EksBlogAdmins"
+* Attach policy:  "AdministratorAccess"
+** For the time being the _admin policy_ will be attached to the new group
+** TODO: specify list of policies required
+* Finally select "create group"
+
+To create and configure the new user:
+
+* Open the IAM dashboard: https://console.aws.amazon.com/iam/home?region=eu-west-1#/home
+* Select Users -> Add user
+* Enter Username: EksBlogAdmin
+* Select "Programmatic access"
+* Add user to group "EksBlogAdmins"
+* Add tags:
+  ** project = "Blog posts with executable code"
+  ** user = "Firstname.Lastname" (this is _your_ name)
+* Finally select "create user"
+
+Create an access key for the user:
+(this will be required later on when configuring the command line tools)
+
+* Open the IAM dashboard: https://console.aws.amazon.com/iam/home?region=eu-west-1#/home
+* Select Users -> Select "EksBlogAdmin" user
+* Select "security credentials tab"
+* Select "Create access key"
+* Make sure to *Note* the new security key and access key.
+
+Create a new group to administer developers wishing to create a executable blog:
+
+* TODO create developer group
+
+## CLI tools
+Install the following CLI tools on your local environment:
+
+* kubectl: Kubernetes CLI for managing the kubernetes cluster
+** https://kubernetes.io/docs/tasks/tools/install-kubectl/
+* terraform: Terraform CLI for provisioning the AWS resources (VPC, Roles, EKS service, etc)
+** https://www.terraform.io/downloads.html
+* aws-iam-authenticator: This is a tool to use AWS IAM credentials to authenticate to a Kubernetes cluster.
+** https://github.com/kubernetes-sigs/aws-iam-authenticator
+** Download (MacOS): https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-07-26/bin/darwin/amd64/aws-iam-authenticator
+* AWS CLI (optional): Useful tool for managing and viewing AWS services from command line.
+** https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html
+
+## Setup AWS CLI
+To quickly setup the aws cli enter the following
+----
+aws configure
+
+# When prompted enter:
+#   AWS Access Key ID: <Access Key for EksBlogAdmin>
+#   AWS Secret Access Key: <Secret Key for EksBlogAdmin>
+#   Default region name: eu-west-1
+#   Default output format: json
+----
+
+# Provisioning the EKS cluster
+
+## Prepare terraform
+* Create the file ./terraform/terraform.tfvars using the access and secret keys for the _EksBlogAdmin_ user created above:
+----
+access_key = "<Replace with AWS access key>"
+secret_key = "<Replace with AWS secret key>"
+----
+* Test the terraform CLI is working and initialise the working directory
+----
+cd ./terraform
+terraform version
+terraform init
+----
+
+## Create EKS cluster (and other dependencies)
+The eks cluster is created using the terraform specification located in the _./terraform/eks.tf_ file. Just follow the
+commands below to provision the cluster.
+
+_Note_: All commands below should be executed from within the _./terraform_ directory.
+
+* Check that the plan is valid. (This also verifies the access keys are correct)
+----
+terraform plan
+----
+* Apply the plan with:
+----
+terraform apply
+----
+* Setup kubectl config for your local development environment and verify its working.
+Note: Before executing any kubectl commands ensure the _KUBECONFIG_ env variable is set as shown below.
+----
+# for unix; adapt accordingly for windows
+terraform output kubeconfig > ~/.kube/config-eks-blog-admin
+export KUBECONFIG=$KUBECONFIG:~/.kube/config-eks-blog-admin
+----
+* Check that the cluster can be accessed
+----
+kubectl get svc  --all-namespaces
+
+# the output should resemble this
+
+NAMESPACE     NAME             TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+default       kubernetes       ClusterIP      172.20.0.1      <none>        443/TCP          3h
+kube-system   kube-dns         ClusterIP      172.20.0.10     <none>        53/UDP,53/TCP    3h
+----
+* Permit the cluster worker nodes and code-build pipelines (used later) to access cluster
+----
+# create an aws-auth config-map file which contains roles permitted to access the eks cluster
+terraform output config_map_aws_auth > config_map_aws_auth.yaml
+
+# apply the config
+kubectl apply -f config_map_aws_auth.yaml
+
+# check that the cluster nodes have been registered
+kubectl get nodes
+
+# the output should resemble this
+# (this can take some seconds before the nodes have status Ready)
+
+NAME                                       STATUS   ROLES    AGE   VERSION
+ip-10-0-0-25.eu-west-1.compute.internal    Ready    <none>   28s   v1.10.3
+ip-10-0-1-21.eu-west-1.compute.internal    Ready    <none>   30s   v1.10.3
+ip-10-0-1-60.eu-west-1.compute.internal    Ready    <none>   54s   v1.10.3
+----
+
+## Verify that the cluster is up and running
+* List all pods
+----
+kubectl get pod --all-namespaces
+
+# the output should resemble this
+NAMESPACE     NAME                              READY   STATUS    RESTARTS   AGE
+kube-system   aws-node-224ft                    1/1     Running   0          1h
+kube-system   aws-node-jcqxt                    1/1     Running   0          1h
+kube-system   kube-dns-fcd468cb-mg2pv           3/3     Running   0          1h
+kube-system   kube-proxy-bph54                  1/1     Running   0          1h
+kube-system   kube-proxy-rv5tc                  1/1     Running   0          1h
+----
+* Run a sample application
+----
+# deploy a sample application
+kubectl run hello-minikube --image=k8s.gcr.io/echoserver:1.10 --port=8080
+
+# to view details on the deployment
+kubectl describe deployment hello-minikube
+
+# expose the application
+# should be accessible as a service from the internet
+kubectl expose deployment hello-minikube --type=LoadBalancer
+
+# get the endpoint of the service
+kubectl get services -o wide
+
+# the output should resemble this
+NAME             TYPE           CLUSTER-IP      EXTERNAL-IP                       PORT(S)          AGE  SELECTOR
+hello-minikube   LoadBalancer   172.20.188.91   ???.eu-west-1.elb.amazonaws.com   8080:32540/TCP   1m   run=hello-minikube
+----
+* Check application is accessible
+ ** open endpoint in browser: http://???.eu-west-1.elb.amazonaws.com:8080/
+ ** Note: this can take a minute or so before endpoint is reachable
+* Clean up the sample application
+----
+# delete the service
+kubectl delete service hello-minikube
+
+# delete the deployment
+kubectl delete deployment hello-minikube
+----
+
+## Install the k8s dashboard (optional)
+* Install the k8s dashboard
+** More details here: https://github.com/kubernetes/dashboard/wiki/Installation
+----
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/master/src/deploy/recommended/kubernetes-dashboard.yaml
+----
+
+* Install heapster (used by dashboard for displaying resource usage)
+** More details here: https://github.com/kubernetes-retired/heapster
+----
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/influxdb/heapster.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/rbac/heapster-rbac.yaml
+----
+
+* Install influxdb (used by heapster for storing metrics)
+----
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/heapster/master/deploy/kube-config/influxdb/influxdb.yaml
+----
+
+* Create eks-admin Service Account and Cluster Role Binding
+** Used to securely connect to the dashboard with admin-level permissions
+----
+cd ./dashboard
+kubectl apply -f eks-admin-service-account.yaml
+kubectl apply -f eks-admin-cluster-role-binding.yaml
+----
+
+* Ouput token for the eks-admin user, copying the token for the next step
+----
+kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep eks-admin | awk '{print $1}')
+----
+
+* Start the proxy for tunneling http request to dashboard.
+----
+kubectl proxy --port=9001
+----
+
+* Open the dashboard
+** http://localhost:9001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
+** Select _Token_ and paste the _Token_ from above.
+
+
+# Destroying the EKS cluster
+* The eks cluster and all worker nodes can be easily destroyed using terraform:
+----
+terraform destroy
+----
+
+_Note_: The other resources that were created outside of terraform (users, code-pipeline, etc.) have to
+be removed manually.
+
+# References
+* AWS EKS: https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html
+* Terraform & EKS: https://www.terraform.io/docs/providers/aws/guides/eks-getting-started.html
+* Github Code: https://github.com/terraform-providers/terraform-provider-aws/tree/master/examples/eks-getting-started
+* AWS CLI: https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-welcome.html

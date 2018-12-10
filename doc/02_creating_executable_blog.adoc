@@ -1,0 +1,166 @@
+= Creating an executable blog
+
+:toc:
+
+# Overview
+
+TODO: overview of process
+
+The basic steps are:
+
+. Create a new github project
+** Add code and build config
+** Add Docker file for creating image
+** Add kubernetes file for creating deployment, service, etc.
+** Add build-spec for CI/CD pipeline
+** Create GitHub access token
+. Setup CI/CD pipeline in AWS
+** Get AWS login
+** Create new CI/CD pipeline
+. Verify
+** Run pipeline
+** Check k8s deployment and service
+** Test endpoint is accessible from internet
+** Update project and check rebuild successful
+
+# Prerequisites
+
+## Docker
+
+Install the latest version of _docker community edition_ for your local development environment:
+
+* For details refer to: https://docs.docker.com/install/
+
+Check docker is running:
+----
+docker info
+----
+
+# Create a new github project
+
+## Add source code and build config
+There is nothing special to do here. Just make sure that your project compiles and runs as expected.
+
+Using the sample _hello-k8s_ application with corresponding maven pom:
+----
+mvn clean package
+java -jar target/hello-0.0.1.jar
+----
+
+## Add Docker file for creating image
+Now dockerize your application.
+
+Using the sample _hello-k8s_ application and provided _Docker_ file:
+
+* make sure the docker image can be created successfully
+----
+docker build -t hello:v1 .
+----
+* test docker image (open http://127.0.0.1:8080)
+----
+docker run -d -p 8080:8080 hello:v1
+
+curl http://localhost:8080/
+----
+* stop container
+----
+# list the docker containers
+docker ps
+
+# stop the container
+docker kill <CONTAINER ID>
+----
+
+## Add kubernetes file for creating deployment, service, etc.
+Create the deployment config for the application.
+
+This has to be created in the root directory of the git repository and named _k8s.yml_.
+Use _CONTAINER_IMAGE_ as the name of the image. This will be automatically substituted later on with the real image name.
+
+A _k8s.yml_ file for the sample application can be found in the project root.
+This creates one service with two hello-k8s containers.
+
+If possible test _your_ config before creating the CI/CD pipeline.
+This can be done with minikube if you have this installed locally.
+(substitute _hello_ with the name of _your_ service)
+----
+kubectl create -f k8s.yml
+kubectl get service/hello -o jsonpath="{.spec.ports[*].nodePort}"
+kubectl get service/hello -o jsonpath="http://{.status.loadBalancer.ingress[0].hostname}:{.spec.ports[*].port}"
+----
+
+## Add build-spec for CI/CD pipeline
+Create the build specification that will be used in the AWS CI/CD pipeline.
+
+This has to be created in the root directory of the git repository and named _buildspec.yml_.
+
+A _buildspec.yml_ file for the sample application can be found in the project root.
+This build spec has 4 phases described below:
+
+* install
+** installs the _aws-iam-authenticator_ CLI
+** installs the _kubectl_ CLI
+** updates the _aws_ CLI
+* pre_build
+** Generates a _TAG_ for the docker image
+** In the k8s.yml file the placeholder _CONTAINER_IMAGE_ is replaced with the real _TAG_ name
+** Prepares the env for using the kubectl CLI
+* build
+** builds and tests the sample application
+** creates a new docker image
+** tags the docker image using the new _TAG_ from above
+* post_build
+** pushes the new docker image to the ECR repository
+** applies the application's kubernetes config
+
+## Create GitHub access token
+AWS CodePipeline, which will be configured shortly, requires access to your GitHub repository. To provide access
+an access token will be created.
+With this access token AWS CodePipeline will be allowed to upload commits from GitHub to your CI/CD pipeline.
+
+To create the access token:
+
+* Open: https://github.com/settings/tokens/new
+** logging in if necessary
+* Enter the token description: "MyCodeBlog"
+** It is recommended to use the name of the git-repo
+* Select the scope: _repo_
+* Select "generate token". _Make sure to note the token as this will be required later on._
+
+# Setup CI/CD pipeline in AWS
+
+## Create CI/CD pipeline using _Cloud Formation_ template
+* Open cloud formation: https://eu-west-1.console.aws.amazon.com/cloudformation/
+** Login with the EksBlogAdmin user
+** Make sure the region "EU Ireland" is selected
+* Select _Create Stack_
+* Under _Select Template_
+** select _Upload a template to Amazon S3_
+** Select the code pipeline template under _./cloudformation/code-pipeline.yml_
+* Under _Specify details_
+** Enter the Stack name: _EksBlogK8sHello_
+** Enter the _Access Token_ for the GitHub account
+** Accept all remaining defaults
+* Under _Options_
+** Enter tags: TODO
+* Under _Review_
+** Select the checkbox at the bottom ("I acknowledge that AWS CloudFormation might create IAM resources")
+* Select _Create StackSet_
+
+# Verify
+
+## Verify CI/CD pipeline
+* Open AWS CodePipeline
+** https://eu-west-1.console.aws.amazon.com/codesuite/codepipeline/pipelines?region=eu-west-1
+* Select the new pipeline from the list
+* Check pipeline and associated build was successful
+
+## Check pipeline executed on code change
+* Modify code, commit and push
+* Check the pipeline is triggered and new version is deployed
+
+# References
+* AWS CodePipeline: https://docs.aws.amazon.com/codepipeline/latest/userguide/welcome.html
+* AWS CodeBuild: https://docs.aws.amazon.com/codebuild/latest/userguide/welcome.html
+* GitHub Webhooks: https://developer.github.com/webhooks/
+* Docker: https://docs.docker.com/get-started/#docker-concepts

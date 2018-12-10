@@ -1,0 +1,14 @@
+# ToDos
+
+* Limit resources (cpu, memory, etc) in k8s config
+* Create namespace per blog post
+* Use an Ingress controller to route all external traffic to services. Refer to these links for more details:
+ ** https://itnext.io/save-on-your-aws-bill-with-kubernetes-ingress-148214a79dcb
+ ** https://akomljen.com/aws-cost-savings-by-utilizing-kubernetes-ingress-with-classic-elb/
+* Costs:
+** Get overview of costs (eks, ec2, elb, code-pipeline, code-build, etc)
+** Reduce costs (stop nodes at night, etc.)
+* Permissions - allow developer to interact with k8s cluster
+** Create AWS login, generate kubectl config, create namespace for blog, etc.
+** Test and document
+

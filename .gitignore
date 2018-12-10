@@ -5,3 +5,4 @@ target
 *.iml
 terraform.tfvars
 .terraform/
+config_map_aws_auth.yaml
