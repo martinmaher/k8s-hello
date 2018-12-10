@@ -12,6 +12,13 @@ data "aws_availability_zones" "available" {}
 # and ARN
 data "aws_caller_identity" "current" {}
 
+locals {
+  common_tags = {
+    user = "Martin.Maher",
+    project = "Blog posts with executable code"
+  }
+}
+
 #
 # Setup the VPC with:
 # - two subnets
@@ -22,12 +29,13 @@ data "aws_caller_identity" "current" {}
 resource "aws_vpc" "demo" {
   cidr_block = "10.0.0.0/16"
 
-  tags = "${
+  tags = "${merge(
+    local.common_tags,
     map(
      "Name", "terraform-eks-demo-node",
-     "kubernetes.io/cluster/${var.cluster-name}", "shared",
+     "kubernetes.io/cluster/${var.cluster-name}", "shared"
     )
-  }"
+  )}"
 }
 
 resource "aws_subnet" "demo" {
@@ -37,20 +45,24 @@ resource "aws_subnet" "demo" {
   cidr_block        = "10.0.${count.index}.0/24"
   vpc_id            = "${aws_vpc.demo.id}"
 
-  tags = "${
+  tags = "${merge(
+    local.common_tags,
     map(
      "Name", "terraform-eks-demo-node",
-     "kubernetes.io/cluster/${var.cluster-name}", "shared",
+     "kubernetes.io/cluster/${var.cluster-name}", "shared"
     )
-  }"
+  )}"
 }
 
 resource "aws_internet_gateway" "demo" {
   vpc_id = "${aws_vpc.demo.id}"
 
-  tags {
-    Name = "terraform-eks-demo"
-  }
+  tags = "${merge(
+    local.common_tags,
+    map(
+    "Name", "terraform-eks-demo"
+    )
+  )}"
 }
 
 resource "aws_route_table" "demo" {
@@ -60,6 +72,8 @@ resource "aws_route_table" "demo" {
     cidr_block = "0.0.0.0/0"
     gateway_id = "${aws_internet_gateway.demo.id}"
   }
+
+  tags = "${local.common_tags}"
 }
 
 resource "aws_route_table_association" "demo" {
@@ -77,7 +91,7 @@ output "account_id" {
   value = "${data.aws_caller_identity.current.account_id}"
 }
 
-# create role for CodeBuild that can interace with EKS cluster
+# create role for CodeBuild that can interact with EKS cluster
 resource "aws_iam_role" "codebuild-role" {
   name = "terraform-eks-codebuild-role"
 
@@ -95,6 +109,8 @@ resource "aws_iam_role" "codebuild-role" {
   ]
 }
 POLICY
+
+  tags = "${local.common_tags}"
 }
 
 resource "aws_iam_role_policy" "codebuild-role-policy" {
@@ -126,8 +142,7 @@ EOF
 # must create an IAM role with the following IAM policies:
 # - AmazonEKSServicePolicy
 # - AmazonEKSClusterPolicy
-# AFAIK this only has to be done once. More details on the policies can be
-# found here:
+# More details on the policies can be found here:
 # https://docs.aws.amazon.com/eks/latest/userguide/service_IAM_role.html#create-service-role
 
 resource "aws_iam_role" "demo-cluster" {
@@ -147,6 +162,8 @@ resource "aws_iam_role" "demo-cluster" {
   ]
 }
 POLICY
+
+  tags = "${local.common_tags}"
 }
 
 resource "aws_iam_role_policy_attachment" "demo-cluster-AmazonEKSClusterPolicy" {
@@ -177,9 +194,12 @@ resource "aws_security_group" "demo-cluster" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags {
-    Name = "terraform-eks-demo"
-  }
+  tags = "${merge(
+    local.common_tags,
+    map(
+    "Name", "terraform-eks-demo"
+    )
+  )}"
 }
 
 # OPTIONAL: Allow inbound traffic from your local workstation external IP
@@ -286,6 +306,8 @@ resource "aws_iam_role" "demo-node" {
   ]
 }
 POLICY
+
+  tags = "${local.common_tags}"
 }
 
 resource "aws_iam_role_policy_attachment" "demo-node-AmazonEKSWorkerNodePolicy" {
@@ -324,12 +346,13 @@ resource "aws_security_group" "demo-node" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = "${
+  tags = "${merge(
+    local.common_tags,
     map(
      "Name", "terraform-eks-demo-node",
-     "kubernetes.io/cluster/${var.cluster-name}", "owned",
+     "kubernetes.io/cluster/${var.cluster-name}", "owned"
     )
-  }"
+  )}"
 }
 
 resource "aws_security_group_rule" "demo-node-ingress-self" {
@@ -434,6 +457,18 @@ resource "aws_autoscaling_group" "demo" {
     value               = "owned"
     propagate_at_launch = true
   }
+
+  tag {
+    key                 = "user"
+    value               = "${lookup(local.common_tags, "user")}"
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "project"
+    value               = "${lookup(local.common_tags, "project")}"
+    propagate_at_launch = true
+  }
 }
 
 # Required Kubernetes Configuration to Join Worker Nodes.
@@ -474,8 +509,3 @@ output "config_map_aws_auth" {
 #  kubectl apply -f config_map_aws_auth.yaml
 # You can verify the worker nodes are joining the cluster via: kubectl get nodes --watch
 
-
-
-#
-# Create role that allows
-#
