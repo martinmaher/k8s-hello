@@ -8,7 +8,9 @@
 * Costs:
 ** Get overview of costs (eks, ec2, elb, code-pipeline, code-build, etc)
 ** Reduce costs (stop nodes at night, etc.)
+** Reduce network I/O - optimize CodeBuild base image
 * Permissions - allow developer to interact with k8s cluster
 ** Create AWS login, generate kubectl config, create namespace for blog, etc.
 ** Test and document
+* Tagging Cloud Formation artifacts with UserName, Project, etc.
 
