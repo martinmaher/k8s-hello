@@ -8,7 +8,7 @@ Parameters:
   EksClusterName:
     Type: String
     Description: The name of the EKS cluster created
-    Default: terraform-eks-demo
+    Default: blog
     MinLength: 1
     MaxLength: 100
     ConstraintDescription: You must enter the EKS cluster name
@@ -55,7 +55,7 @@ Parameters:
 
   KubectlRoleName:
     Type: String
-    Default: terraform-eks-codebuild-role
+    Default: blog-codebuild-role
     Description: IAM role used by kubectl to interact with EKS cluster
     MinLength: 3
     MaxLength: 100
@@ -308,6 +308,7 @@ Resources:
         ComputeType: BUILD_GENERAL1_SMALL
         Type: LINUX_CONTAINER
         Image: !Ref CodeBuildDockerImage
+        PrivilegedMode: true
         EnvironmentVariables:
         - Name: REPOSITORY_URI
           Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcrDockerRepository}
