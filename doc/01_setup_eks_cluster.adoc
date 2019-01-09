@@ -71,6 +71,15 @@ aws configure
 #   Default output format: json
 ----
 
+If you decide to skip the installation of AWS CLI you must manually create the file _.aws/credentials_ under your home
+directory. This file is used later on by aws-iam-authenticator when attempting to access the eks cluster with kubectl.
+Add the following content to the file:
+----
+[default]
+aws_access_key_id = <Access Key for EksBlogAdmin>
+aws_secret_access_key = <Secret Key for EksBlogAdmin>
+----
+
 # Provisioning the EKS cluster
 
 ## Prepare terraform
