@@ -11,7 +11,7 @@ before_install:
 - docker ps -a
 
 script:
-- mvn clean install
+- mvn -PIT clean install
 
 cache:
   directories:
