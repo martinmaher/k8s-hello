@@ -10,6 +10,9 @@ services:
 before_install:
 - docker ps -a
 
+# skip the install
+install: true
+
 script:
 - mvn -PIT clean install
 
