@@ -13,8 +13,14 @@ before_install:
 # skip the install
 install: true
 
-script:
-- mvn -PIT clean install
+jobs:
+  include:
+  - stage: build and unit tests
+    script:
+    - mvn clean install
+  - stage: integration tests
+    script:
+    - mvn -PIT install
 
 cache:
   directories:
